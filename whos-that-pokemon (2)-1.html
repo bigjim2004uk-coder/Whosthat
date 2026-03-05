@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Who's That Pokémon?</title>
+<link href="https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold: #f5c842;
+    --gold-dark: #c9a227;
+    --gold-light: #fde882;
+    --card-bg: #1a1a2e;
+    --card-inner: #16213e;
+    --hp-red: #ff4444;
+    --correct: #4caf50;
+    --wrong: #f44336;
+    --text-light: #eee;
+    --shadow: rgba(0,0,0,0.6);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    min-height: 100vh;
+    background: radial-gradient(ellipse at 60% 0%, #2a1a6e 0%, #0a0a1a 60%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Nunito', sans-serif;
+    overflow-x: hidden;
+    padding: 20px;
+  }
+
+  /* Floating Pokéballs background */
+  .bg-balls {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 0;
+  }
+  .bg-ball {
+    position: absolute;
+    border-radius: 50%;
+    opacity: 0.04;
+    animation: floatBall linear infinite;
+  }
+  @keyframes floatBall {
+    0% { transform: translateY(110vh) rotate(0deg); }
+    100% { transform: translateY(-20vh) rotate(360deg); }
+  }
+
+  h1 {
+    font-family: 'Bangers', cursive;
+    font-size: clamp(2rem, 6vw, 3.5rem);
+    color: var(--gold);
+    letter-spacing: 3px;
+    text-shadow: 3px 3px 0 #000, 0 0 30px rgba(245,200,66,0.4);
+    margin-bottom: 6px;
+    text-align: center;
+    position: relative;
+    z-index: 1;
+  }
+
+  .score-bar {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 20px;
+    position: relative;
+    z-index: 1;
+  }
+  .score-pill {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 999px;
+    padding: 5px 18px;
+    color: #ccc;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+  .score-pill span {
+    color: var(--gold);
+    font-size: 1rem;
+  }
+
+  /* THE CARD */
+  .card-wrap {
+    position: relative;
+    z-index: 1;
+    perspective: 1000px;
+  }
+
+  .pokemon-card {
+    width: min(380px, 95vw);
+    border-radius: 22px;
+    background: linear-gradient(145deg, #2a2a4a, #0d0d1f);
+    border: 3px solid var(--gold);
+    box-shadow:
+      0 0 0 1px rgba(245,200,66,0.2),
+      0 0 40px rgba(245,200,66,0.15),
+      0 20px 60px rgba(0,0,0,0.8),
+      inset 0 1px 0 rgba(255,255,255,0.1);
+    padding: 14px;
+    transition: transform 0.6s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Holographic shimmer */
+  .pokemon-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      105deg,
+      transparent 40%,
+      rgba(255,255,255,0.04) 50%,
+      transparent 60%
+    );
+    animation: shimmer 4s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 10;
+  }
+  @keyframes shimmer {
+    0%, 100% { background-position: -200% 0; opacity: 0; }
+    50% { opacity: 1; }
+  }
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  .card-name {
+    font-family: 'Bangers', cursive;
+    font-size: 1.5rem;
+    color: var(--gold);
+    letter-spacing: 2px;
+    text-shadow: 1px 1px 0 #000;
+  }
+
+  .card-hp {
+    font-weight: 900;
+    font-size: 0.75rem;
+    color: #aaa;
+    letter-spacing: 1px;
+  }
+  .card-hp span {
+    font-family: 'Bangers', cursive;
+    font-size: 1.4rem;
+    color: var(--hp-red);
+    letter-spacing: 0;
+  }
+
+  /* Image stage */
+  .image-stage {
+    border-radius: 14px;
+    background: linear-gradient(135deg, #0d1b33, #1a0d33, #0d1b33);
+    border: 2px solid rgba(255,255,255,0.08);
+    position: relative;
+    overflow: hidden;
+    height: 220px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+  }
+
+  .image-stage::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 50% 80%, rgba(100,50,200,0.15) 0%, transparent 70%),
+      radial-gradient(ellipse at 50% 20%, rgba(50,100,200,0.1) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .stage-number {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.2);
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+
+  .pokemon-img {
+    max-height: 190px;
+    max-width: 90%;
+    object-fit: contain;
+    position: relative;
+    z-index: 1;
+    transition: filter 0.5s ease, transform 0.4s ease;
+    filter: brightness(0) invert(0); /* silhouette */
+    image-rendering: -webkit-optimize-contrast;
+    drop-shadow: none;
+  }
+
+  .pokemon-img.silhouette {
+    filter: brightness(0) contrast(1) drop-shadow(0 0 12px rgba(80,60,200,0.5));
+  }
+
+  .pokemon-img.revealed {
+    filter: drop-shadow(0 0 20px rgba(245,200,66,0.4));
+    animation: revealPop 0.5s cubic-bezier(0.34,1.56,0.64,1) both;
+  }
+
+  @keyframes revealPop {
+    0% { transform: scale(0.7) rotate(-5deg); opacity: 0; }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  }
+
+  /* Type badges */
+  .type-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+    min-height: 22px;
+    align-items: center;
+  }
+  .type-badge {
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 0.65rem;
+    font-weight: 900;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: all 0.3s ease;
+  }
+  .type-badge.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Type colors */
+  .t-normal { background: #a8a878; color: #fff; }
+  .t-fire { background: #f08030; color: #fff; }
+  .t-water { background: #6890f0; color: #fff; }
+  .t-electric { background: #f8d030; color: #333; }
+  .t-grass { background: #78c850; color: #fff; }
+  .t-ice { background: #98d8d8; color: #333; }
+  .t-fighting { background: #c03028; color: #fff; }
+  .t-poison { background: #a040a0; color: #fff; }
+  .t-ground { background: #e0c068; color: #333; }
+  .t-flying { background: #a890f0; color: #fff; }
+  .t-psychic { background: #f85888; color: #fff; }
+  .t-bug { background: #a8b820; color: #fff; }
+  .t-rock { background: #b8a038; color: #fff; }
+  .t-ghost { background: #705898; color: #fff; }
+  .t-dragon { background: #7038f8; color: #fff; }
+  .t-dark { background: #705848; color: #fff; }
+  .t-steel { background: #b8b8d0; color: #333; }
+  .t-fairy { background: #f0b6bc; color: #333; }
+
+  /* Divider */
+  .card-divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold-dark), transparent);
+    margin-bottom: 12px;
+    opacity: 0.4;
+  }
+
+  /* Question section */
+  .question-text {
+    font-family: 'Bangers', cursive;
+    font-size: 1.3rem;
+    color: #ccc;
+    letter-spacing: 2px;
+    margin-bottom: 12px;
+    text-align: center;
+  }
+
+  /* Input area */
+  .guess-area {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .guess-input {
+    flex: 1;
+    background: rgba(255,255,255,0.06);
+    border: 2px solid rgba(245,200,66,0.3);
+    border-radius: 12px;
+    padding: 10px 14px;
+    color: #fff;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    outline: none;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .guess-input:focus {
+    border-color: var(--gold);
+    background: rgba(255,255,255,0.1);
+  }
+  .guess-input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .guess-input::placeholder { color: rgba(255,255,255,0.3); }
+
+  .guess-btn {
+    background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+    border: none;
+    border-radius: 12px;
+    padding: 10px 18px;
+    color: #1a1a00;
+    font-family: 'Bangers', cursive;
+    font-size: 1.1rem;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.2s;
+    box-shadow: 0 4px 12px rgba(245,200,66,0.3);
+    white-space: nowrap;
+  }
+  .guess-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(245,200,66,0.5);
+  }
+  .guess-btn:active:not(:disabled) { transform: translateY(0); }
+  .guess-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Result feedback */
+  .result-banner {
+    border-radius: 12px;
+    padding: 10px 14px;
+    text-align: center;
+    font-family: 'Bangers', cursive;
+    font-size: 1.3rem;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+    display: none;
+    animation: bannerIn 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
+  }
+  @keyframes bannerIn {
+    from { transform: scale(0.8); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+  .result-banner.correct {
+    display: block;
+    background: rgba(76,175,80,0.2);
+    border: 2px solid #4caf50;
+    color: #81e884;
+  }
+  .result-banner.wrong {
+    display: block;
+    background: rgba(244,67,54,0.2);
+    border: 2px solid #f44336;
+    color: #ff7b72;
+  }
+
+  /* Next btn */
+  .next-btn {
+    width: 100%;
+    background: linear-gradient(135deg, #3d3d8a, #1a1a5a);
+    border: 2px solid var(--gold);
+    border-radius: 12px;
+    padding: 11px;
+    color: var(--gold);
+    font-family: 'Bangers', cursive;
+    font-size: 1.2rem;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: none;
+  }
+  .next-btn:hover {
+    background: linear-gradient(135deg, #5050b0, #2a2a7a);
+    box-shadow: 0 0 20px rgba(245,200,66,0.3);
+  }
+  .next-btn.visible { display: block; animation: bannerIn 0.4s ease both; }
+
+  /* Hint button */
+  .hint-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .hint-btn {
+    flex: 1;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 10px;
+    padding: 7px;
+    color: #aaa;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.5px;
+  }
+  .hint-btn:hover:not(:disabled) {
+    background: rgba(255,255,255,0.1);
+    color: var(--gold);
+    border-color: var(--gold-dark);
+  }
+  .hint-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .hint-text {
+    font-size: 0.72rem;
+    color: rgba(200,180,255,0.7);
+    margin-bottom: 8px;
+    min-height: 16px;
+    text-align: center;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  /* Card bottom decoration */
+  .card-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  .card-set {
+    font-size: 0.6rem;
+    color: rgba(255,255,255,0.2);
+    letter-spacing: 1px;
+    font-weight: 700;
+  }
+  .card-stars {
+    color: var(--gold);
+    font-size: 0.6rem;
+    opacity: 0.3;
+    letter-spacing: 2px;
+  }
+
+  /* Streak fire */
+  .streak-fire {
+    display: inline-block;
+    animation: fire 0.8s ease-in-out infinite alternate;
+  }
+  @keyframes fire {
+    from { transform: scale(1) rotate(-3deg); }
+    to { transform: scale(1.1) rotate(3deg); }
+  }
+
+  /* Loading state */
+  .loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(255,255,255,0.1);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* Autocomplete */
+  .autocomplete-box {
+    position: absolute;
+    bottom: 100%;
+    left: 0; right: 0;
+    background: #1a1a3e;
+    border: 1px solid rgba(245,200,66,0.3);
+    border-radius: 10px;
+    margin-bottom: 4px;
+    max-height: 140px;
+    overflow-y: auto;
+    z-index: 100;
+    scrollbar-width: thin;
+    scrollbar-color: var(--gold-dark) transparent;
+  }
+  .autocomplete-item {
+    padding: 8px 14px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #ccc;
+    transition: background 0.15s;
+    text-transform: capitalize;
+  }
+  .autocomplete-item:hover, .autocomplete-item.active {
+    background: rgba(245,200,66,0.15);
+    color: var(--gold);
+  }
+  .input-wrap { position: relative; flex: 1; }
+</style>
+</head>
+<body>
+
+<!-- Background balls -->
+<div class="bg-balls" id="bgBalls"></div>
+
+<h1>⚡ WHO'S THAT POKÉMON? ⚡</h1>
+
+<div class="score-bar">
+  <div class="score-pill">🏆 Score: <span id="scoreDisplay">0</span></div>
+  <div class="score-pill">🔥 Streak: <span id="streakDisplay">0</span></div>
+  <div class="score-pill">📋 <span id="roundDisplay">1</span>/∞</div>
+</div>
+
+<div class="card-wrap">
+  <div class="pokemon-card" id="pokeCard">
+    <!-- Header -->
+    <div class="card-header">
+      <div class="card-name" id="cardNameDisplay">???</div>
+      <div class="card-hp">HP <span id="hpDisplay">??</span></div>
+    </div>
+
+    <!-- Image Stage -->
+    <div class="image-stage">
+      <div class="stage-number" id="pokeNumber">#???</div>
+      <div class="loading-spinner" id="loadingSpinner"></div>
+      <img class="pokemon-img silhouette" id="pokeImg" src="" alt="Who's that Pokémon?" style="display:none"/>
+    </div>
+
+    <!-- Type badges -->
+    <div class="type-row" id="typeRow"></div>
+
+    <div class="card-divider"></div>
+
+    <!-- Question -->
+    <div class="question-text">❓ WHO'S THAT POKÉMON? ❓</div>
+
+    <!-- Hints -->
+    <div class="hint-row">
+      <button class="hint-btn" id="hintGenBtn" onclick="showHint('number')">🔢 Pokédex #</button>
+      <button class="hint-btn" id="hintLetterBtn" onclick="showHint('letter')">🔤 1st Letter</button>
+      <button class="hint-btn" id="hintTypeBtn" onclick="showHint('type')">🏷️ Type</button>
+    </div>
+    <div class="hint-text" id="hintText"></div>
+
+    <!-- Guess area -->
+    <div class="guess-area">
+      <div class="input-wrap">
+        <input class="guess-input" id="guessInput" type="text" placeholder="Enter Pokémon name..." autocomplete="off" />
+        <div class="autocomplete-box" id="autocompleteBox" style="display:none"></div>
+      </div>
+      <button class="guess-btn" id="guessBtn" onclick="submitGuess()">GO!</button>
+    </div>
+
+    <!-- Result banner -->
+    <div class="result-banner" id="resultBanner"></div>
+
+    <!-- Next -->
+    <button class="next-btn" id="nextBtn" onclick="nextPokemon()">NEXT POKÉMON →</button>
+
+    <!-- Card footer -->
+    <div class="card-bottom">
+      <div class="card-set">POKÉMON CARD GAME • SPECIAL EDITION</div>
+      <div class="card-stars">★ ★ ★</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============ DATA ============
+const POKEMON_LIST = [
+  {id:1,name:"Bulbasaur",types:["grass","poison"],gen:1},
+
+  {id:2,name:"Ivysaur",types:["grass","poison"],gen:1},
+  {id:3,name:"Venusaur",types:["grass","poison"],gen:1},
+  {id:4,name:"Charmander",types:["fire"],gen:1},
+  {id:5,name:"Charmeleon",types:["fire"],gen:1},
+  {id:6,name:"Charizard",types:["fire","flying"],gen:1},
+  {id:7,name:"Squirtle",types:["water"],gen:1},
+  {id:8,name:"Wartortle",types:["water"],gen:1},
+  {id:9,name:"Blastoise",types:["water"],gen:1},
+  {id:10,name:"Caterpie",types:["bug"],gen:1},
+  {id:11,name:"Metapod",types:["bug"],gen:1},
+  {id:12,name:"Butterfree",types:["bug","flying"],gen:1},
+  {id:13,name:"Weedle",types:["bug","poison"],gen:1},
+  {id:14,name:"Kakuna",types:["bug","poison"],gen:1},
+  {id:15,name:"Beedrill",types:["bug","poison"],gen:1},
+  {id:16,name:"Pidgey",types:["normal","flying"],gen:1},
+  {id:25,name:"Pikachu",types:["electric"],gen:1},
+  {id:26,name:"Raichu",types:["electric"],gen:1},
+  {id:35,name:"Clefairy",types:["fairy"],gen:1},
+  {id:36,name:"Clefable",types:["fairy"],gen:1},
+  {id:37,name:"Vulpix",types:["fire"],gen:1},
+  {id:38,name:"Ninetales",types:["fire"],gen:1},
+  {id:39,name:"Jigglypuff",types:["normal","fairy"],gen:1},
+  {id:52,name:"Meowth",types:["normal"],gen:1},
+  {id:54,name:"Psyduck",types:["water"],gen:1},
+  {id:63,name:"Abra",types:["psychic"],gen:1},
+  {id:64,name:"Kadabra",types:["psychic"],gen:1},
+  {id:65,name:"Alakazam",types:["psychic"],gen:1},
+  {id:66,name:"Machop",types:["fighting"],gen:1},
+  {id:74,name:"Geodude",types:["rock","ground"],gen:1},
+  {id:79,name:"Slowpoke",types:["water","psychic"],gen:1},
+  {id:81,name:"Magnemite",types:["electric","steel"],gen:1},
+  {id:88,name:"Grimer",types:["poison"],gen:1},
+  {id:92,name:"Gastly",types:["ghost","poison"],gen:1},
+  {id:93,name:"Haunter",types:["ghost","poison"],gen:1},
+  {id:94,name:"Gengar",types:["ghost","poison"],gen:1},
+  {id:95,name:"Onix",types:["rock","ground"],gen:1},
+  {id:100,name:"Voltorb",types:["electric"],gen:1},
+  {id:104,name:"Cubone",types:["ground"],gen:1},
+  {id:107,name:"Hitmonchan",types:["fighting"],gen:1},
+  {id:111,name:"Rhyhorn",types:["ground","rock"],gen:1},
+  {id:113,name:"Chansey",types:["normal"],gen:1},
+  {id:114,name:"Tangela",types:["grass"],gen:1},
+  {id:116,name:"Horsea",types:["water"],gen:1},
+  {id:120,name:"Staryu",types:["water"],gen:1},
+  {id:121,name:"Starmie",types:["water","psychic"],gen:1},
+  {id:122,name:"Mr. Mime",types:["psychic","fairy"],gen:1},
+  {id:123,name:"Scyther",types:["bug","flying"],gen:1},
+  {id:124,name:"Jynx",types:["ice","psychic"],gen:1},
+  {id:125,name:"Electabuzz",types:["electric"],gen:1},
+  {id:126,name:"Magmar",types:["fire"],gen:1},
+  {id:127,name:"Pinsir",types:["bug"],gen:1},
+  {id:128,name:"Tauros",types:["normal"],gen:1},
+  {id:129,name:"Magikarp",types:["water"],gen:1},
+  {id:130,name:"Gyarados",types:["water","flying"],gen:1},
+  {id:131,name:"Lapras",types:["water","ice"],gen:1},
+  {id:132,name:"Ditto",types:["normal"],gen:1},
+  {id:133,name:"Eevee",types:["normal"],gen:1},
+  {id:134,name:"Vaporeon",types:["water"],gen:1},
+  {id:135,name:"Jolteon",types:["electric"],gen:1},
+  {id:136,name:"Flareon",types:["fire"],gen:1},
+  {id:143,name:"Snorlax",types:["normal"],gen:1},
+  {id:144,name:"Articuno",types:["ice","flying"],gen:1},
+  {id:145,name:"Zapdos",types:["electric","flying"],gen:1},
+  {id:146,name:"Moltres",types:["fire","flying"],gen:1},
+  {id:147,name:"Dratini",types:["dragon"],gen:1},
+  {id:148,name:"Dragonair",types:["dragon"],gen:1},
+  {id:149,name:"Dragonite",types:["dragon","flying"],gen:1},
+  {id:150,name:"Mewtwo",types:["psychic"],gen:1},
+  {id:151,name:"Mew",types:["psychic"],gen:1},
+];
+
+const ALL_NAMES = POKEMON_LIST.map(p => p.name);
+
+// ============ STATE ============
+let current = null;
+let score = 0;
+let streak = 0;
+let round = 1;
+let hintsUsed = [];
+let answered = false;
+
+// ============ INIT ============
+function pad(n) {
+  return String(n).padStart(3, '0');
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+let queue = shuffle(POKEMON_LIST);
+let queueIndex = 0;
+
+function nextPokemon() {
+  if (queueIndex >= queue.length) {
+    queue = shuffle(POKEMON_LIST);
+    queueIndex = 0;
+  }
+  current = queue[queueIndex++];
+  answered = false;
+  hintsUsed = [];
+
+  // Reset UI
+  document.getElementById('cardNameDisplay').textContent = '???';
+  document.getElementById('hpDisplay').textContent = Math.floor(Math.random() * 100) + 50;
+  document.getElementById('pokeNumber').textContent = '#???';
+  document.getElementById('typeRow').innerHTML = '';
+  document.getElementById('resultBanner').className = 'result-banner';
+  document.getElementById('resultBanner').textContent = '';
+  document.getElementById('nextBtn').className = 'next-btn';
+  document.getElementById('guessInput').value = '';
+  document.getElementById('guessInput').disabled = false;
+  document.getElementById('guessBtn').disabled = false;
+  document.getElementById('hintText').textContent = '';
+  document.getElementById('hintGenBtn').disabled = false;
+  document.getElementById('hintLetterBtn').disabled = false;
+  document.getElementById('hintTypeBtn').disabled = false;
+  document.getElementById('autocompleteBox').style.display = 'none';
+  document.getElementById('roundDisplay').textContent = round++;
+
+  // Load image
+  const img = document.getElementById('pokeImg');
+  const spinner = document.getElementById('loadingSpinner');
+  img.style.display = 'none';
+  spinner.style.display = 'block';
+  img.className = 'pokemon-img silhouette';
+
+  const url = `https://url.uk.m.mimecastprotect.com/s/K_8BCV5GrcBAQEiGfpSE1WOf?domain=raw.githubusercontent.com`;
+  img.onload = () => {
+    spinner.style.display = 'none';
+    img.style.display = 'block';
+  };
+  img.onerror = () => {
+    spinner.style.display = 'none';
+    img.src = `https://url.uk.m.mimecastprotect.com/s/5b37CWwJvH3BoQIxhNSou2l3?domain=raw.githubusercontent.com`;
+    img.style.display = 'block';
+  };
+  img.src = url;
+
+  document.getElementById('guessInput').focus();
+}
+
+// Clefairy data for the trick reveal
+const CLEFAIRY = {id: 35, name: "Clefairy", types: ["fairy"]};
+
+function revealAnswer(revealData) {
+  const pokemon = revealData || current;
+  const img = document.getElementById('pokeImg');
+  img.classList.remove('silhouette');
+  img.classList.add('revealed');
+
+  // Swap image if needed
+  const url = `https://url.uk.m.mimecastprotect.com/s/QffdCX7KwCAYrgTDiYSWawwX?domain=raw.githubusercontent.com`;
+  img.src = url;
+  img.onerror = () => {
+    img.src = `https://url.uk.m.mimecastprotect.com/s/sHBmCYQLxHYxBvuVsvSxkJPl?domain=raw.githubusercontent.com`;
+  };
+
+  document.getElementById('cardNameDisplay').textContent = pokemon.name;
+  document.getElementById('pokeNumber').textContent = `#${pad(pokemon.id)}`;
+
+  // Show types
+  const typeRow = document.getElementById('typeRow');
+  typeRow.innerHTML = '';
+  pokemon.types.forEach((t, i) => {
+    const badge = document.createElement('div');
+    badge.className = `type-badge t-${t}`;
+    badge.textContent = t.toUpperCase();
+    typeRow.appendChild(badge);
+    setTimeout(() => badge.classList.add('visible'), i * 150 + 100);
+  });
+}
+
+function submitGuess() {
+  if (answered) return;
+  const input = document.getElementById('guessInput');
+  const guess = input.value.trim().toLowerCase();
+  if (!guess) return;
+
+  answered = true;
+  input.disabled = true;
+  document.getElementById('guessBtn').disabled = true;
+  document.getElementById('autocompleteBox').style.display = 'none';
+  ['hintGenBtn','hintLetterBtn','hintTypeBtn'].forEach(id => {
+    document.getElementById(id).disabled = true;
+  });
+
+  const correct = current.name.toLowerCase();
+  const banner = document.getElementById('resultBanner');
+  const nextBtn = document.getElementById('nextBtn');
+
+  const isPikachuRound = current.name === "Pikachu";
+
+  if (!isPikachuRound && (guess === correct || guess === correct.replace(/[^a-z0-9]/g, ''))) {
+    // Correct guess (non-Pikachu round)
+    score++;
+    streak++;
+    revealAnswer();
+    banner.className = 'result-banner correct';
+    banner.innerHTML = `🎉 CORRECT! It's ${current.name}! ${streak >= 3 ? '<span class="streak-fire">🔥 x'+streak+'</span>' : ''}`;
+    document.getElementById('guessInput').style.borderColor = '#4caf50';
+  } else {
+    // Wrong — or it's a Pikachu round (always wrong, always show Clefairy)
+    streak = 0;
+    revealAnswer(isPikachuRound ? CLEFAIRY : null);
+    banner.className = 'result-banner wrong';
+    banner.innerHTML = isPikachuRound
+      ? `😢 WRONG! It was <strong>Clefairy</strong>! Better luck next time!`
+      : `😢 It was <strong>${current.name}</strong>! Better luck next time!`;
+    document.getElementById('guessInput').style.borderColor = '#f44336';
+  }
+
+  document.getElementById('scoreDisplay').textContent = score;
+  document.getElementById('streakDisplay').textContent = streak >= 3 
+    ? `${streak} 🔥` : streak;
+
+  nextBtn.className = 'next-btn visible';
+}
+
+function showHint(type) {
+  if (hintsUsed.includes(type)) return;
+  hintsUsed.push(type);
+  document.getElementById(`hint${type.charAt(0).toUpperCase()+type.slice(1)}Btn`).disabled = true;
+
+  let text = document.getElementById('hintText').textContent;
+  if (text) text += ' • ';
+
+  if (type === 'number') {
+    const n = current.id; const lo = Math.floor((n-1)/10)*10+1; const hi = lo+9; text += `#${lo}–#${hi}`;
+  } else if (type === 'letter') {
+    text += `Starts with "${current.name[0].toUpperCase()}"`;
+  } else if (type === 'type') {
+    text += `Type: ${current.types.map(t => t.charAt(0).toUpperCase()+t.slice(1)).join('/')}`;
+  }
+
+  document.getElementById('hintText').textContent = text;
+}
+
+// Autocomplete
+document.getElementById('guessInput').addEventListener('input', function() {
+  const val = this.value.toLowerCase();
+  const box = document.getElementById('autocompleteBox');
+  if (!val || val.length < 2) { box.style.display = 'none'; return; }
+
+  const matches = ALL_NAMES.filter(n => n.toLowerCase().startsWith(val)).slice(0, 6);
+  if (!matches.length) { box.style.display = 'none'; return; }
+
+  box.innerHTML = matches.map(m => 
+    `<div class="autocomplete-item" onclick="selectAuto('${m}')">${m}</div>`
+  ).join('');
+  box.style.display = 'block';
+});
+
+document.getElementById('guessInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    document.getElementById('autocompleteBox').style.display = 'none';
+    submitGuess();
+  }
+});
+
+function selectAuto(name) {
+  document.getElementById('guessInput').value = name;
+  document.getElementById('autocompleteBox').style.display = 'none';
+  document.getElementById('guessInput').focus();
+}
+
+// Close autocomplete on outside click
+document.addEventListener('click', e => {
+  if (!e.target.closest('.input-wrap')) {
+    document.getElementById('autocompleteBox').style.display = 'none';
+  }
+});
+
+// Background decoration
+function buildBg() {
+  const container = document.getElementById('bgBalls');
+  for (let i = 0; i < 12; i++) {
+    const ball = document.createElement('div');
+    ball.className = 'bg-ball';
+    const size = Math.random() * 120 + 60;
+    ball.style.cssText = `
+      width:${size}px; height:${size}px;
+      left:${Math.random()*100}%;
+      background: radial-gradient(circle at 40% 35%, #fff 0%, transparent 65%),
+        conic-gradient(#cc0000 0% 50%, #fff 50%);
+      animation-duration: ${Math.random()*20+15}s;
+      animation-delay: ${Math.random()*-20}s;
+    `;
+    container.appendChild(ball);
+  }
+}
+
+buildBg();
+nextPokemon();
+</script>
+</body>
+</html>
+
